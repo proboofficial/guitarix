@@ -562,7 +562,7 @@ static const LV2UI_Descriptor descriptors[] = {
 #ifdef __cplusplus
 extern "C" {
 #endif
-LV2_SYMBOL_EXPORT
+extern "C" LV2_SYMBOL_EXPORT
 const LV2UI_Descriptor* lv2ui_descriptor(uint32_t index) {
     if (index >= sizeof(descriptors) / sizeof(descriptors[0])) {
         return NULL;

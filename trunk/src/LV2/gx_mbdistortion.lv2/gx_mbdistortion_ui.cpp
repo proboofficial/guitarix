@@ -702,8 +702,7 @@ static const LV2UI_Descriptor descriptor = {
 
 
 
-extern "C"
-LV2_SYMBOL_EXPORT
+extern "C" LV2_SYMBOL_EXPORT
 const LV2UI_Descriptor* lv2ui_descriptor(uint32_t index) {
     switch (index) {
         case 0:

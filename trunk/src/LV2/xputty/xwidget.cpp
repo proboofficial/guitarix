@@ -216,7 +216,7 @@ Widget_t *create_window(Xputty *app, Window win,
 
     os_create_main_window_and_surface(w, app, win, x, y, width, height);
     create_cairo_context_and_buffer(w);
-#ifndef _WIN32 // childlist already set up
+#if !defined(_WIN32) && !defined(__APPLE__) // childlist already set up
     childlist_add_child(app->childlist,w);
 #endif
 
@@ -308,7 +308,7 @@ Widget_t *create_widget(Xputty *app, Widget_t *parent,
 
     os_create_widget_window_and_surface(w, app, parent, x, y, width, height);
     create_cairo_context_and_buffer(w);
-#ifndef _WIN32 // childlist already set up
+#if !defined(_WIN32) && !defined(__APPLE__) // childlist already set up
     childlist_add_child(app->childlist,w);
 #endif
 

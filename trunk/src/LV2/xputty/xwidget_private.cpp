@@ -116,6 +116,8 @@ void _check_grab(Widget_t * wid, XButtonEvent *xbutton, Xputty *main) {
             //if (xbutton->window == view_port->widget) return;
 #ifdef _WIN32 //SetCaptureDisabled//XUngrabPointer
             //ReleaseCapture(); // SetCapture() is currently disabled in pop_menu_show()
+#elif defined(__APPLE__)
+            //TODO
 #else
             XUngrabPointer(main->dpy,CurrentTime);
 #endif
@@ -148,8 +150,10 @@ void _propagate_child_expose(Widget_t *wid) {
             Widget_t *w = wid->childlist->childs[i];
             if (w->flags & USE_TRANSPARENCY) {
                 if(w->flags & FAST_REDRAW)
-#ifndef _WIN32 //ForceRedraw
+#if defined(__linux__) || defined(__FreeBSD__) //ForceRedraw
                     transparent_draw(w, NULL);
+#elif defined(__APPLE__)
+            expose_widget(w);    
 #else
 		    expose_widget(w);
 #endif

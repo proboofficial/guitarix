@@ -257,6 +257,8 @@ Widget_t *open_file_dialog(Widget_t *w, const char *path, const char *filter) {
 
 #ifdef _WIN32 //WindowBorders
     file_dialog->w = create_window(w->app, (HWND)-1, 0, 0, 660, 420);
+#elif defined(__APPLE__)
+    file_dialog->w = create_window(w->app, (Window)-1, 0, 0, 660, 420);
 #else
     file_dialog->w = create_window(w->app, DefaultRootWindow(w->app->dpy), 0, 0, 660, 420);
 #endif

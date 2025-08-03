@@ -294,6 +294,8 @@ def configure(conf):
         conf.find_program('gcov')
         conf.env['CXXFLAGS'] = conf.env['CFLAGS'] = ['-fprofile-arcs', '-ftest-coverage']
         conf.env['LDFLAGS'] = ['-lgcov', '-coverage']
+        if sys.platform == 'darwin':
+            conf.env['LDFLAGS'] = ['-framework', 'Cocoa']
     if opt.python_wrapper or opt.glade_support:
         conf.load('compiler_c')
     # linker flags
@@ -301,14 +303,14 @@ def configure(conf):
     conf.env['LINKFLAGS'] = conf.env['LDFLAGS']
 
     # os specific: common settings
-    conf.env['OS_LV2_CXXFLAGS']      = ['-fvisibility=hidden']
-    if any('clang' not in s for s in conf.env["CXX"]):
+    conf.env['OS_LV2_CXXFLAGS']      = ['-fvisibility=hidden','-Wno-unused-private-field']
+    if sys.platform !='darwin' or any('clang' not in s for s in conf.env["CXX"]):
         conf.env.append_value('OS_LV2_CXXFLAGS',['-Wl,--exclude-libs,ALL'])
     conf.env['OS_SNDFILE_CFGFLAGS']  = ['--cflags','--libs','sndfile >= 1.0.17']
     conf.env['OS_CAIRO_CFGFLAGS']    = '--cflags --libs'
     conf.env['OS_RESOURCES_LDFLAGS'] = '-z noexecstack'
     if conf.env['OS'] != 'win32':
-        if any('clang' not in s for s in conf.env["CXX"]):
+        if sys.platform !='darwin' or any('clang' not in s for s in conf.env["CXX"]):
             conf.env.append_value('OS_LV2_CXXFLAGS', ['-Wl,-z,relro,-z,now'])
     else:
         # MSWin changes

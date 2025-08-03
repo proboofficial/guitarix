@@ -237,6 +237,9 @@ static void entry_get_text(void *w_, void *key_, void *user_data) {
             case 11: entry_clip(w);
 #ifdef _WIN32 //ForceRedraw
                 os_expose_widget(w);
+#elif defined(__APPLE__)
+                //ForceRedraw
+                os_expose_widget(w);
 #endif
             break;
             default:
@@ -248,6 +251,10 @@ static void entry_get_text(void *w_, void *key_, void *user_data) {
             entry_add_text(w, buf);
 #ifdef _WIN32 //ForceRedraw
             os_expose_widget(w);
+#elif defined(__APPLE__)
+            //ForceRedraw
+            os_expose_widget(w);
+
 #endif
         }
     }
@@ -343,6 +350,8 @@ Widget_t *open_message_dialog(Widget_t *w, int style, const char *title,
     check_for_style(md, style);
 #ifdef _WIN32 //WindowBorders
     Widget_t *wid = create_window(w->app, (HWND)-1, 0, 0, md->width, md->height);
+#elif defined(__APPLE__)
+    Widget_t *wid = create_window(w->app, (Window)-1, 0, 0, md->width, md->height);                                
 #else
     Widget_t *wid = create_window(w->app, DefaultRootWindow(w->app->dpy), 0, 0, md->width, md->height);
 #endif

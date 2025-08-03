@@ -436,7 +436,7 @@ private:
     unsigned int    _inpsize;                 // size of input buffers
     unsigned int    _latecnt;                 // count of cycles ending too late
     Convlevel      *_convlev [MAXLEV];        // array of processors 
-    void           *_dummy [64];
+    [[maybe_unused]]void           *_dummy [64];
 };
 
 

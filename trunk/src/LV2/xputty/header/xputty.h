@@ -33,8 +33,12 @@
 
 #include <math.h>
 #include <cairo.h>
+#ifndef __APPLE__
 #include "xputty-mswin.h" // no ifdef (waf dependency check)
-#if defined (__linux__) || (__FreeBSD__)
+#endif
+#ifdef __APPLE__
+#include "xputty-macos.h"
+#elif defined (__linux__) || (__FreeBSD__)
 #include <cairo-xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>

@@ -32,6 +32,9 @@ void pop_menu_show(Widget_t *parent, Widget_t *menu, int elem, bool above) {
 #ifdef _WIN32 //SetCaptureDisabled//XGrabPointer
     int err = 0;
     //SetCapture(view_port->widget);
+#elif defined(__APPLE__)
+    int err = 0;
+    //SetCapture(view_port->widget);
 #else
     int err = XGrabPointer(menu->app->dpy, DefaultRootWindow(parent->app->dpy), True,
                  ButtonPressMask|ButtonReleaseMask|PointerMotionMask,
@@ -61,8 +64,9 @@ Widget_t* create_menu(Widget_t *parent, int height) {
     Widget_t *wid = create_window(parent->app, os_get_root_window(parent), x1, y1, 10, height);
     wid->widget_type = WT_MENU;
     create_viewport(wid, 10, 5*height);
-
-#ifndef _WIN32 //XChangeProperty
+#ifdef __APPLE__
+    wid->parent = parent;
+#elif defined(__linux__) || defined(__FreeBSD__) //XChangeProperty
     XSetWindowAttributes attributes;
     attributes.override_redirect = True;
     XChangeWindowAttributes(parent->app->dpy, wid->widget, CWOverrideRedirect, &attributes);
@@ -78,6 +82,11 @@ Widget_t* create_menu(Widget_t *parent, int height) {
         XA_ATOM, 32, PropModeReplace, (unsigned char *) &window_state_modal, 1);
 
     XSetTransientForHint(parent->app->dpy,wid->widget,parent->widget);
+#endif
+#ifdef __APPLE__
+    // On macOS, store the parent NSView so popup can use it for positioning
+    wid->parent_struct = parent->widget ? parent->widget : parent->parent_struct;
+
 #endif
     wid->func.expose_callback = _draw_menu;
     wid->flags |= IS_POPUP;

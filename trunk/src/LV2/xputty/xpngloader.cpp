@@ -98,6 +98,8 @@ cairo_surface_t * surface_get_png(Widget_t *w, cairo_surface_t *sf, const unsign
 void widget_set_icon_from_surface(Widget_t *w, Pixmap *icon_, cairo_surface_t *image) {
 #ifdef _WIN32 //PixmapIcon
     return; // TODO
+#elif defined(__APPLE__)
+    return; // TODO
 #else
     int width, height;
     os_get_surface_size(w->image, &width, &height);
@@ -127,6 +129,8 @@ void widget_set_icon_from_surface(Widget_t *w, Pixmap *icon_, cairo_surface_t *i
 
 void widget_set_icon_from_png(Widget_t *w, Pixmap *icon_, const unsigned char* name) {
 #ifdef _WIN32 //PixmapIcon
+    return; // TODO
+#elif defined(__APPLE__)
     return; // TODO
 #else
     cairo_surface_t *image = cairo_image_surface_create_from_stream (name);
