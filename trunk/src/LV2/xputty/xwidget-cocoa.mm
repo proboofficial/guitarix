@@ -70,6 +70,10 @@ extern "C" {
        NSLog(@"[drawRect] Surface NULL for widget: %p", widget);
        return;
     }
+    if (widget->flags & IS_POPUP) {
+    // To jest główny widget (nie popup) – zawsze go rysuj ponownie
+    [self setNeedsDisplay:YES];
+    }
     transparent_draw(widget, NULL);
 
     CGContextRef cgContext = [[NSGraphicsContext currentContext] CGContext];
@@ -90,11 +94,11 @@ extern "C" {
 
 //Mouse Events
 - (void)mouseDown:(NSEvent *)event {
-    if (widget->state == 4) return;
     if (!widget) return;
+    if (widget->state == 4) return;
 
     XButtonEvent xbutton;
-    xbutton.window = (__bridge Window)self;
+    xbutton.window = (__bridge Window)(self.window);
     NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
     xbutton.x = loc.x;
     xbutton.y = loc.y;
@@ -104,8 +108,9 @@ extern "C" {
     widget->pos_y = loc.y;
 
     if (widget->flags & HAS_TOOLTIP) hide_tooltip(widget);
+    if (widget->flags & IS_POPUP) [self setNeedsDisplay:YES];
     _button_press(widget, &xbutton, NULL);
-    
+   
 }
 
 - (void)mouseUp:(NSEvent *)event {
@@ -124,7 +129,10 @@ extern "C" {
     if (widget->flags) widget->state = 1;
     else widget->state = 0;
     _check_enum(widget, &xbutton);
-
+    Widget_t* combo = (Widget_t*)widget->parent;
+    if (combo->func.expose_callback) {
+        combo->func.expose_callback(combo, NULL);
+    }
     if (widget->func.button_release_callback)
         widget->func.button_release_callback(widget, &xbutton, NULL);
     [self setNeedsDisplay:YES];
@@ -228,11 +236,17 @@ void os_translate_coords(Widget_t *w, Window widget, Window root, int x, int y, 
 
         *rx = (int)windowPoint.x;
         *ry = (int)([[NSScreen mainScreen] frame].size.height - windowPoint.y);
+
+        NSLog(@"[os_translate_coords] NSView: localPoint=(%d,%d), screenPoint=(%.1f,%.1f), windowPoint=(%.1f,%.1f), translated=(%d,%d)",
+              x, y, screenPoint.x, screenPoint.y, windowPoint.x, windowPoint.y, *rx, *ry);
     } else if ([obj isKindOfClass:[NSWindow class]]) {
         NSWindow *win = (NSWindow *)obj;
         NSPoint winOrigin = [win frame].origin;
         *rx = (int)winOrigin.x + x;
         *ry = (int)([[NSScreen mainScreen] frame].size.height - winOrigin.y) + y;
+
+        NSLog(@"[os_translate_coords] NSWindow: winOrigin=(%.1f,%.1f), input=(%d,%d), translated=(%d,%d)",
+              winOrigin.x, winOrigin.y, x, y, *rx, *ry);
     }
 }
 
@@ -248,6 +262,7 @@ void os_get_window_metrics(Widget_t *w, Metrics_t *metrics) {
     metrics->width = (int)frame.size.width;
     metrics->height = (int)frame.size.height;
 }
+
 
 void os_set_window_min_size(Widget_t* w, int min_width, int min_height,
                             int base_width, int base_height) {
@@ -328,7 +343,6 @@ void os_resize_window(Display* dpy, Widget_t* w, int width, int height) {
     }
 }
 
-
 void os_get_surface_size(cairo_surface_t* surface, int* width, int* height) {
     if (!surface) return;
     *width = cairo_image_surface_get_width(surface);
@@ -345,9 +359,10 @@ void os_set_widget_surface_size(Widget_t* w, int width, int height) {
 
 void os_create_main_window_and_surface(Widget_t* w, Xputty* app, Window win,
                                       int x, int y, int width, int height) {
-    childlist_add_child(app->childlist, w);
+    
 
     if (win == (Window)-1) {
+        childlist_add_child(app->childlist, w);
         // Main application window
         NSRect rect = NSMakeRect(x, y, width, height);
 
@@ -358,76 +373,22 @@ void os_create_main_window_and_surface(Widget_t* w, Xputty* app, Window win,
                                                          backing:NSBackingStoreBuffered
                                                            defer:NO];
 
-        // Utwórz widok, przypisz widget
+        // Create View, set widget
         XWidgetView *view = [[XWidgetView alloc] initWithWidget:w frame:NSMakeRect(0, 0, width, height)];
         [window setContentView:view];
         [window setTitle:@"Xputty macOS Window"];
         [window makeKeyAndOrderFront:nil];
 
-        // Zapamiętaj widok i okno w widget
+        // Remember View and Widget
         w->widget = (__bridge Window)view;
         w->parent_struct = (__bridge void *)window;
 
-        // Teraz twórz surface i kontekst cairo (offscreen)
+        // Create Cairo surface and context for drawing
         w->surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
         w->cr = cairo_create(w->surface);
-
-    } else if (win == (Window)kCGNullWindowID) {
-         // Use parent_struct as NSView* for popup positioning
-        NSView *parentView = (__bridge NSView *)w->parent_struct;
-        NSWindow *parentWindow = [parentView window];
-
-        // Convert the bounds of the parent view (e.g. ComboBox) to screen coordinates
-        NSRect widgetRect = [parentView convertRect:[parentView bounds] toView:nil];
-        NSPoint screenPoint = [parentWindow convertRectToScreen:widgetRect].origin;
-        NSRect popupRect = NSMakeRect(screenPoint.x, screenPoint.y - height, width, height);
-
-        NSWindow *popup = [[NSWindow alloc] initWithContentRect:popupRect
-                                                  styleMask:NSWindowStyleMaskBorderless
-                                                    backing:NSBackingStoreBuffered
-                                                      defer:NO];
-
-        [popup setOpaque:NO];
-        [popup setBackgroundColor:[NSColor clearColor]];
-        [popup setLevel:NSFloatingWindowLevel];
-        [popup setHasShadow:YES];
-        [popup setIgnoresMouseEvents:NO];
-        [popup setReleasedWhenClosed:NO];
-        w->surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
-        w->cr = cairo_create(w->surface);
-        XWidgetView *view = [[XWidgetView alloc] initWithWidget:w frame:NSMakeRect(0, 0, width, height)];
-        [popup setContentView:view];
-        [popup makeFirstResponder:view];
-        dispatch_async(dispatch_get_main_queue(), ^{
-        [popup setContentSize:NSMakeSize(width, height)];
-        [[popup contentView] setNeedsDisplay:YES];
-        [[popup contentView] displayIfNeeded];
-        transparent_draw(w, NULL);
-        });
-
-        NSView *popupView = [popup contentView];
-    
-        // Wymuszenie layoutu i odrysowania
-        [popupView setNeedsLayout:YES];
-        [popupView layout];  // force layout immediately
-    
-        [popupView setNeedsDisplay:YES];
-        [popupView displayIfNeeded];
-        [popupView setWantsLayer:YES];
-        [[popupView layer] displayIfNeeded];
-        // Use NSWindow as widget, so it can be shown/hidden correctly
-        w->widget = (__bridge Window)popup;
-
-        // Use view for drawing (optional, only if needed elsewhere)
-        w->parent_struct = (__bridge void *)view;
-
-        w->surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
-        w->cr = cairo_create(w->surface);
-        
-        [(NSWindow*)w->widget displayIfNeeded];
-        
 
     } else if (win) {
+        childlist_add_child(app->childlist, w);
         // Embedded widget inside another parent view
         NSView *parentView = (__bridge NSView *)win;
         NSRect rect = NSMakeRect(x, y, width, height);
@@ -439,12 +400,52 @@ void os_create_main_window_and_surface(Widget_t* w, Xputty* app, Window win,
 
         w->surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
         w->cr = cairo_create(w->surface);
+    } else {
+    childlist_add_child(app->childlist, w);
+    NSRect popupRect = NSMakeRect(x, y, width, height);
+
+    // Create NSPanel as popup window
+    NSPanel *popup = [[NSPanel alloc] initWithContentRect:popupRect
+                                                 styleMask:NSWindowStyleMaskBorderless
+                                                   backing:NSBackingStoreBuffered
+                                                     defer:NO];
+
+    // set types for popup
+    [popup setLevel:NSPopUpMenuWindowLevel];
+    [popup setHasShadow:YES];
+    [popup setOpaque:NO];
+    [popup setBackgroundColor:[NSColor clearColor]];
+    [popup setHidesOnDeactivate:YES]; // opcjonal
+    [popup setReleasedWhenClosed:NO];
+    [popup setBecomesKeyOnlyIfNeeded:YES];
+    [popup setIgnoresMouseEvents:NO];
+
+   
+    // Create View Popuop
+    XWidgetView *popupView = [[XWidgetView alloc] initWithWidget:w frame:NSMakeRect(0, 0, width, height)];
+    [popup setContentView:popupView];
+
+    // Set NSPanel and NSView for Xputty
+    w->widget = (__bridge Window)popup;
+    w->parent_struct = (__bridge void *)popupView;
+
+    // Create Cairo surface and context for drawing
+    w->surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    w->cr = cairo_create(w->surface);
+
+    NSLog(@"[debug] popup: %0.0fx%0.0f,  popupview: %0.0fx%0.0f",
+          popupView.frame.size.width, popupView.frame.size.height,
+          popup.frame.size.width, popup.frame.size.height);
+
+    NSLog(@"view.frame = %@, window.contentView.frame = %@",
+          NSStringFromRect(popupView.frame),
+          NSStringFromRect(popup.contentView.frame));
     }
+
+
 
     os_set_window_min_size(w, width / 2, height / 2, width, height);
 }
-
-
 
 void os_create_widget_window_and_surface(Widget_t* w, Xputty* app, Widget_t* parent,
                                          int x, int y, int width, int height) {
@@ -514,9 +515,6 @@ void os_widget_show(Widget_t *w) {
     }
 }
 
-
-
-
 void os_widget_hide(Widget_t* w) {
     if (!w || !w->widget) return;
 
@@ -553,7 +551,6 @@ void os_expose_widget(Widget_t* w) {
     }
 }
 
-
 void os_send_configure_event(Widget_t* w, int x, int y, int width, int height) {
    //NOTHING
 }
@@ -580,7 +577,6 @@ void os_adjustment_callback(void *w_, void *user_data) {
         [(NSView*)obj displayIfNeeded];
     }
 }
-
 
 bool os_get_keyboard_input(Widget_t* w, XKeyEvent* key, char* buf, size_t bufsize) {
     if (bufsize < 2) return false;

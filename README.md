@@ -35,6 +35,15 @@ Guitarix can also load up LAPSPA and LV2 plugins to comply the effect chain.
 - ./waf build
 - sudo ./waf install
 
+## Building guitarix from source code on MacOS
+- git clone https://github.com/brummer10/guitarix.git
+- cd guitarix
+- git submodule update --init --recursive
+- cd trunk
+- ./waf configure --prefix=/opt/guitarix-cocoa2 --includeresampler --includeconvolver --optimization --no-avahi --install-roboto-font --no-faust  --no-standalone
+- ./waf build
+- ./waf install
+
 ## (build) Dependencies
 
 - gperf,
